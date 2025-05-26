@@ -1,74 +1,47 @@
 pipeline {
     agent any
     tools {
-        jdk 'JDK'
-        maven 'Maven'
-        git 'Git'
-        dockerTool 'docker'
-    }          
-    environment {
-        DOCKER_REGISTRY = 'your-registry'
-        DOCKER_IMAGE = 'your-image'
-        DOCKER_TAG = 'latest'
+      dockerTool 'docker'
+      jdk 'JAVA_HOME'
+      maven 'M2_HOME'
+      git 'Default'
     }
     stages {
-        stage('Clone Repository') {
+        stage('Clone') {
             steps {
-                cleanWs()
-                git branch: 'master', url: 'https://github.com/dvsr1411/onlinebookstore.git'
+                git 'https://github.com/DVSR1411/onlinebookstore.git'
             }
         }
-        stage('Build with Maven') {
+        stage('Maven build') {
             steps {
                 sh 'mvn clean install package'
             }
         }
-        stage('Push to Nexus') {
+        stage('Nexus upload') {
             steps {
-                nexusArtifactUploader artifacts: [[artifactId: 'onlinebookstore', classifier: '', file: 'target/onlinebookstore.war', type: 'war']], credentialsId: 'demo', groupId: 'onlinebookstore', nexusUrl: 'NEXUS_URL', nexusVersion: 'nexus3', protocol: 'http', repository: 'onlinebookstore', version: '0.0.1-SNAPSHOT'
+                nexusArtifactUploader artifacts: [[artifactId: 'onlinebookstore', classifier: '', file: 'target/onlinebookstore.war', type: 'war']], credentialsId: 'nexus', groupId: 'com.example.myapp', nexusUrl: '3.110.54.27:8081', nexusVersion: 'nexus3', protocol: 'http', repository: 'onlinebookstore', version: '0.0.1-SNAPSHOT'
             }
         }
-        stage('Build Docker Image') {
+        stage('Docker build') {
             steps {
-                script {
-                    docker.build("${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}")
+                withCredentials([usernamePassword(credentialsId: 'docker', passwordVariable: 'passwd', usernameVariable: 'uname')]) {
+                    sh 'docker login -u $uname -p $passwd'
+                    sh 'docker build -t $uname/onlinebookstore:v1 .'
                 }
             }
         }
-        stage('Push Docker Image') {
+        stage('Docker push') {
             steps {
-                script {
-                    docker.withRegistry('https://${DOCKER_REGISTRY}', 'docker-credentials-id') {
-                        docker.image("${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}").push()
-                    }
+                withCredentials([usernamePassword(credentialsId: 'docker', passwordVariable: 'passwd', usernameVariable: 'uname')]) {
+                    sh 'docker push $uname/onlinebookstore:v1'
                 }
             }
         }
-        stage('Update manifest') {
+        stage('Kubernetes deploy') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'git', passwordVariable: 'passwd', usernameVariable: 'user')]) {
-                    git "https://github.com/$user/onlinebookstore.git" 
-                    sh "git config user.name $user"
-                    sh "git config user.email satwikreddy.danda@hotmail.com"
-                    sh "sed -i 's+dvsr1411/onlinebookstore.*+dvsr1411/onlinebookstore:$params.dockertag+g' manifests/tomcat.yml"
-                    sh "git add ."
-                    sh "git commit -m Commit-$params.dockertag"
-                    sh "git push https://$user:$passwd@github.com/$user/onlinebookstore.git master"
-                }
+                sh 'kubectl apply -f manifests/tomcat.yml'
+                sh 'kubectl apply -f manifests/mysql.yml'
             }
-        }
-        stage('Deploy to Kubernetes') {
-            steps {
-                withKubeConfig([credentialsId: 'kubernetes-config']) {
-                    sh 'kubectl apply -f manifests/'      
-                    sh 'kubectl rollout restart deployment onlinebookstore'
-                }
-            }
-        }
-    }
-    post {
-        always {
-            cleanWs()
         }
     }
 }
