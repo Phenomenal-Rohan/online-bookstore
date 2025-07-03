@@ -1,7 +1,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: todoapp-ingress
+  name: onlinebookstore-ingress
   annotations:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
@@ -14,6 +14,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: todo-app
+                name: onlinebookstore
                 port:
                   number: 80
