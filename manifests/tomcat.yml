@@ -23,16 +23,16 @@ spec:
         - name: MYSQL_USER
           value: "demo"
         - name: MYSQL_PASSWORD
-          value: "Sathwik123"
+          value: "Rohan123"
         - name: MYSQL_ROOT_PASSWORD
-          value: "Sathwik123"
+          value: "Rohan123"
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: onlinebookstore
 spec:
-  type: NodePort
+  type: LoadBalancer
   ports: 
   - port: 80
     targetPort: 8080
