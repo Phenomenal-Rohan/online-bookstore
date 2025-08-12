@@ -1,11 +1,11 @@
 pipeline {
     agent any
     tools {
-      dockerTool 'docker'
-      jdk 'JAVA_HOME'
-      maven 'M2_HOME'
-      git 'Default'
-    }
+  dockerTool 'DOCKER'
+  jdk 'JAVA'
+  git 'Default'
+  maven 'MAVEN'
+}
     stages {
         stage('Clone') {
             steps {
@@ -17,31 +17,34 @@ pipeline {
                 sh 'mvn clean install package'
             }
         }
-        stage('Nexus upload') {
-            steps {
-                nexusArtifactUploader artifacts: [[artifactId: 'onlinebookstore', classifier: '', file: 'target/onlinebookstore.war', type: 'war']], credentialsId: 'nexus', groupId: 'com.example.myapp', nexusUrl: '3.110.54.27:8081', nexusVersion: 'nexus3', protocol: 'http', repository: 'onlinebookstore', version: '0.0.1-SNAPSHOT'
-            }
-        }
         stage('Docker build') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'docker', passwordVariable: 'passwd', usernameVariable: 'uname')]) {
                     sh 'docker login -u $uname -p $passwd'
-                    sh 'docker build -t $uname/onlinebookstore:v1 .'
+                    sh 'docker build -t $uname/onlinebookstore .'
                 }
             }
         }
         stage('Docker push') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'docker', passwordVariable: 'passwd', usernameVariable: 'uname')]) {
-                    sh 'docker push $uname/onlinebookstore:v1'
+                    sh 'docker push $uname/onlinebookstore'
                 }
             }
         }
         stage('Kubernetes deploy') {
             steps {
-                sh 'kubectl apply -f manifests/tomcat.yml'
-                sh 'kubectl apply -f manifests/mysql.yml'
-            }
-        }
-    }
-}
+                sh '''
+                CREDENTIALS=$(aws sts assume-role --role-arn arn:aws:iam::339712783680:role/KubectlRole --role-session-name ec2-kubectl --duration-seconds 900)
+                export AWS_ACCESS_KEY_ID="$(echo ${CREDENTIALS} | jq -r '.Credentials.AccessKeyId')"
+                export AWS_SECRET_ACCESS_KEY="$(echo ${CREDENTIALS} | jq -r '.Credentials.SecretAccessKey')"
+                export AWS_SESSION_TOKEN="$(echo ${CREDENTIALS} | jq -r '.Credentials.SessionToken')"
+                export AWS_EXPIRATION=$(echo ${CREDENTIALS} | jq -r '.Credentials.Expiration')
+                aws eks update-kubeconfig --name clusterson --region ap-south-1
+                kubectl apply -f manifests/.
+                '''
+              }
+           }
+        
+       }
+  }
