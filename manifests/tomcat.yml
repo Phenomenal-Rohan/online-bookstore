@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: onlinebookstore
-        image: 339712783680.dkr.ecr.ap-south-1.amazonaws.com/phenomenalrohan/onlinebookstore:latest
+        image: phenomenalrohan/onlinebookstore:latest
         ports:
         - containerPort: 8080
         env:
