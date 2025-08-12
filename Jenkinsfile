@@ -9,7 +9,7 @@ pipeline {
     stages {
         stage('Clone') {
             steps {
-                git 'https://github.com/DVSR1411/onlinebookstore.git'
+                git 'https://github.com/Phenomenal-Rohan/online-bookstore.git'
             }
         }
         stage('Maven build') {
